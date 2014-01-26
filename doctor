@@ -1,0 +1,51 @@
+#!/bin/sh
+
+SERVICE_URL="http://stark-fjord-4535.herokuapp.com"
+SSH_URL=107.22.184.93
+
+case $1 in
+    login)
+        if [ ! -f $HOME/.ssh/id_rsa.pub ]; then
+            echo "SSH key not found. Run ssh-genkey to get one"
+            exit 1
+        fi
+        SSH_KEY=`cat $HOME/.ssh/id_rsa.pub`
+        echo -n "Enter the access code: "
+        read TOKEN
+        
+        if curl $SERVICE_URL/papi/login -H "content-type: application/json" -d "{ \"token\" : \"$TOKEN\", \"sshKey\" : \"$SSH_KEY\" }"; then
+            echo 
+            exit 0;
+        else
+            echo "Failed to login"
+            exit 1;
+        fi
+    ;;
+    create)
+        n1=$(cat /usr/share/dict/words | grep -v "'" | shuf -n1 | tr '[:upper:]' '[:lower:]')
+        n2=$(cat /usr/share/dict/words | grep -v "'" | shuf -n1 | tr '[:upper:]' '[:lower:]')
+        PROJECT_NAME=${n1}-${n2}
+        result=$(ssh git@$SSH_URL create $PROJECT_NAME)
+        if [ $? -eq 0 ]; then
+            git remote add doctor git@$SSH_URL:$result
+            echo "Project created"
+            echo "Project name is $PROJECT_NAME"
+            echo $PROJECT_NAME > .doctor.proj
+            exit 0
+        else
+            echo $result
+            exit 1
+        fi
+    ;;
+    log)
+        PROJECT_NAME=$(cat .doctor.proj)
+        ssh git@$SSH_URL log $PROJECT_NAME 
+    ;;
+    *)
+        echo "Unknown option"
+        exit 1
+    ;;
+        
+esac
+
+
